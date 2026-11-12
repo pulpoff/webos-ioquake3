@@ -94,19 +94,33 @@ index d5c38f61..c74df86e 100644
  
  	for (i = 0; i < 16; i++)
 diff --git a/code/sdl/sdl_input.c b/code/sdl/sdl_input.c
-index dcc6bc52..9679c604 100644
+index dcc6bc52..ec22c72c 100644
 --- a/code/sdl/sdl_input.c
 +++ b/code/sdl/sdl_input.c
 @@ -234,6 +234,8 @@ static keyNum_t IN_TranslateSDLToQ3Key( SDL_Keysym *keysym, qboolean down )
  			case SDLK_KP_8:         key = K_KP_UPARROW;    break;
  			case SDLK_UP:           key = K_UPARROW;       break;
  			case SDLK_ESCAPE:       key = K_ESCAPE;        break;
-+			// webOS: the remote's Back button (SDL_WEBOS_ACCESS_POLICY_KEYS_BACK=true) is Escape
++			// an Android-style Back key is Escape too (the webOS remote's Back is below)
 +			case SDLK_AC_BACK:      key = K_ESCAPE;        break;
  			case SDLK_KP_ENTER:     key = K_KP_ENTER;      break;
  			case SDLK_RETURN:       key = K_ENTER;         break;
  			case SDLK_TAB:          key = K_TAB;           break;
-@@ -1231,6 +1233,30 @@ static void IN_ProcessEvents( void )
+@@ -309,6 +311,13 @@ static keyNum_t IN_TranslateSDLToQ3Key( SDL_Keysym *keysym, qboolean down )
+ 		}
+ 	}
+ 
++#ifdef WEBOS
++	// webosbrew's SDL webOS port reports the remote's Back button as its own
++	// SDL_SCANCODE_WEBOS_BACK (482), which the standard SDL headers lack
++	if( keysym->scancode == 482 )
++		key = K_ESCAPE;
++#endif
++
+ 	if( in_keyboardDebug->integer )
+ 		IN_PrintKey( keysym, key, down );
+ 
+@@ -1231,6 +1240,30 @@ static void IN_ProcessEvents( void )
  	}
  }
  
@@ -137,7 +151,7 @@ index dcc6bc52..9679c604 100644
  /*
  ===============
  IN_Frame
-@@ -1240,6 +1266,7 @@ void IN_Frame( void )
+@@ -1240,6 +1273,7 @@ void IN_Frame( void )
  {
  	qboolean loading;
  
@@ -145,7 +159,7 @@ index dcc6bc52..9679c604 100644
  	IN_JoyMove( );
  
  	// If not DISCONNECTED (main menu) or ACTIVE (in game), we're loading
-@@ -1311,7 +1338,9 @@ void IN_Init( void *windowData )
+@@ -1311,7 +1345,9 @@ void IN_Init( void *windowData )
  	SDL_EventState( SDL_DROPFILE, SDL_ENABLE );
  #endif
  
@@ -157,10 +171,10 @@ index dcc6bc52..9679c604 100644
  	mouseAvailable = ( in_mouse->value != 0 );
  	IN_DeactivateMouse( Cvar_VariableIntegerValue( "r_fullscreen" ) != 0 );
 diff --git a/code/sys/sys_main.c b/code/sys/sys_main.c
-index e3b63cb5..984fc800 100644
+index e3b63cb5..9d45f32f 100644
 --- a/code/sys/sys_main.c
 +++ b/code/sys/sys_main.c
-@@ -51,6 +51,123 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+@@ -51,6 +51,134 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  #include "../qcommon/q_shared.h"
  #include "../qcommon/qcommon.h"
  
@@ -247,8 +261,7 @@ index e3b63cb5..984fc800 100644
 +	// - mute and slow down while another app is in front, as Home leaves the
 +	//   game running;
 +	// - the remote's OK (Enter) shoots; its arrows already walk and turn;
-+	// - the OpenGL2 renderer's costly extras off, for the Mali-G51 at 1080p;
-+	// - every single-player tier open from the start ("iamacheater")
++	// - the OpenGL2 renderer's costly extras off, for the Mali-G51 at 1080p
 +	Com_sprintf( mark, sizeof( mark ), "%s/%s/.webos-1", home, game );
 +	if ( access( mark, F_OK ) != 0 && ( f = fopen( path, "a" ) ) ) {
 +		fputs( "\nseta s_muteWhenUnfocused \"1\"\nseta s_muteWhenMinimized \"1\"\n"
@@ -262,10 +275,22 @@ index e3b63cb5..984fc800 100644
 +		if ( ( f = fopen( mark, "w" ) ) )
 +			fclose( f );
 +	}
-+	Com_sprintf( mark, sizeof( mark ), "%s/%s/.unlocked-1", home, game );
-+	if ( !demo && access( mark, F_OK ) != 0 && ( f = fopen( mark, "w" ) ) ) {
++	// every single-player tier open at every skill: q3_ui reads g_spScores1-5
++	// (one per skill) as \l<level>\<rank>, so mark each level as won. Level 39
++	// is far past the full game's 26.
++	Com_sprintf( mark, sizeof( mark ), "%s/%s/.unlocked-2", home, game );
++	if ( !demo && access( mark, F_OK ) != 0 && ( f = fopen( path, "a" ) ) ) {
++		char scores[ 512 ] = "";
++		int level, skill;
++
++		for ( level = 0; level < 40; level++ )
++			Q_strcat( scores, sizeof( scores ), va( "\\l%d\\1", level ) );
++		fputs( "\n", f );
++		for ( skill = 1; skill <= 5; skill++ )
++			fprintf( f, "seta g_spScores%d \"%s\"\n", skill, scores );
 +		fclose( f );
-+		Q_strcat( commandLine, size, "+iamacheater " );
++		if ( ( f = fopen( mark, "w" ) ) )
++			fclose( f );
 +	}
 +
 +	if ( demo ) {
@@ -284,7 +309,7 @@ index e3b63cb5..984fc800 100644
  static char binaryPath[ MAX_OSPATH ] = { 0 };
  static char installPath[ MAX_OSPATH ] = { 0 };
  
-@@ -838,11 +955,22 @@ int main( int argc, char **argv )
+@@ -838,11 +966,22 @@ int main( int argc, char **argv )
  	Sys_SetBinaryPath( Sys_Dirname( argv[ 0 ] ) );
  	Sys_SetDefaultInstallPath( DEFAULT_BASEDIR );
  
