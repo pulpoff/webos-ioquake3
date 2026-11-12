@@ -1,0 +1,309 @@
+diff --git a/code/client/cl_keys.c b/code/client/cl_keys.c
+index 7aca5b62..eff107d9 100644
+--- a/code/client/cl_keys.c
++++ b/code/client/cl_keys.c
+@@ -1364,6 +1364,33 @@ void CL_KeyUpEvent( int key, unsigned time )
+ 	}
+ }
+ 
++/*
++===================
++CL_PadMenuKey
++
++A gamepad works the menus the way a console game's do: the D-pad moves, A chooses, B and Back go back. Start is
++Escape everywhere, so it opens the menu in game and leaves it again. The menus know only the keyboard's keys.
++===================
++*/
++static int CL_PadMenuKey( int key ) {
++	if ( key == K_PAD0_START )
++		return K_ESCAPE;
++
++	if ( !( Key_GetCatcher( ) & KEYCATCH_UI ) || ( Key_GetCatcher( ) & KEYCATCH_CONSOLE ) )
++		return key;
++
++	switch ( key ) {
++		case K_PAD0_DPAD_UP:	return K_UPARROW;
++		case K_PAD0_DPAD_DOWN:	return K_DOWNARROW;
++		case K_PAD0_DPAD_LEFT:	return K_LEFTARROW;
++		case K_PAD0_DPAD_RIGHT:	return K_RIGHTARROW;
++		case K_PAD0_A:		return K_ENTER;
++		case K_PAD0_B:
++		case K_PAD0_BACK:	return K_ESCAPE;
++		default:		return key;
++	}
++}
++
+ /*
+ ===================
+ CL_KeyEvent
+@@ -1372,6 +1399,19 @@ Called by the system for both key up and key down events
+ ===================
+ */
+ void CL_KeyEvent (int key, qboolean down, unsigned time) {
++	static int padKeyDown[MAX_KEYS];	// what a gamepad button went down as, so it comes up as that too
++
++	if ( key >= K_PAD0_A && key <= K_PAD0_RIGHTTRIGGER ) {
++		if ( down ) {
++			padKeyDown[key] = CL_PadMenuKey( key );
++			key = padKeyDown[key];
++		} else if ( padKeyDown[key] ) {
++			int pressed = padKeyDown[key];
++			padKeyDown[key] = 0;
++			key = pressed;
++		}
++	}
++
+ 	if( down )
+ 		CL_KeyDownEvent( key, time );
+ 	else
+diff --git a/code/q3_ui/ui_menu.c b/code/q3_ui/ui_menu.c
+index 6afacbac..30881867 100644
+--- a/code/q3_ui/ui_menu.c
++++ b/code/q3_ui/ui_menu.c
+@@ -273,6 +273,7 @@ void UI_MainMenu( void ) {
+ 
+ 	trap_Cvar_Set( "sv_killserver", "1" );
+ 
++#ifndef WEBOS
+ 	if( !uis.demoversion && !ui_cdkeychecked.integer ) {
+ 		char	key[17];
+ 
+@@ -282,6 +283,7 @@ void UI_MainMenu( void ) {
+ 			return;
+ 		}
+ 	}
++#endif
+ 	
+ 	memset( &s_main, 0 ,sizeof(mainmenu_t) );
+ 	memset( &s_errorMessage, 0 ,sizeof(errorMessage_t) );
+diff --git a/code/sdl/sdl_glimp.c b/code/sdl/sdl_glimp.c
+index d5c38f61..c74df86e 100644
+--- a/code/sdl/sdl_glimp.c
++++ b/code/sdl/sdl_glimp.c
+@@ -586,6 +586,12 @@ static int GLimp_SetMode(int mode, qboolean fullscreen, qboolean noborder, qbool
+ 		contexts[numContexts].majorVersion = 1;
+ 		contexts[numContexts].minorVersion = 1;
+ 		numContexts++;
++
++		// OpenGL ES 1.1, for GPUs without desktop OpenGL (webOS TVs)
++		contexts[numContexts].profileMask = SDL_GL_CONTEXT_PROFILE_ES;
++		contexts[numContexts].majorVersion = 1;
++		contexts[numContexts].minorVersion = 1;
++		numContexts++;
+ 	}
+ 
+ 	for (i = 0; i < 16; i++)
+diff --git a/code/sdl/sdl_input.c b/code/sdl/sdl_input.c
+index dcc6bc52..9679c604 100644
+--- a/code/sdl/sdl_input.c
++++ b/code/sdl/sdl_input.c
+@@ -234,6 +234,8 @@ static keyNum_t IN_TranslateSDLToQ3Key( SDL_Keysym *keysym, qboolean down )
+ 			case SDLK_KP_8:         key = K_KP_UPARROW;    break;
+ 			case SDLK_UP:           key = K_UPARROW;       break;
+ 			case SDLK_ESCAPE:       key = K_ESCAPE;        break;
++			// webOS: the remote's Back button (SDL_WEBOS_ACCESS_POLICY_KEYS_BACK=true) is Escape
++			case SDLK_AC_BACK:      key = K_ESCAPE;        break;
+ 			case SDLK_KP_ENTER:     key = K_KP_ENTER;      break;
+ 			case SDLK_RETURN:       key = K_ENTER;         break;
+ 			case SDLK_TAB:          key = K_TAB;           break;
+@@ -1231,6 +1233,30 @@ static void IN_ProcessEvents( void )
+ 	}
+ }
+ 
++/*
++===============
++IN_SyncTextInput
++
++Text input only while something takes typing, the console or a chat line: on a phone, text input brings up the
++on-screen keyboard over the game. (The menus' text fields go without it.)
++===============
++*/
++static qboolean textInput = qfalse;
++
++static void IN_SyncTextInput( void )
++{
++	qboolean want = ( Key_GetCatcher( ) & ( KEYCATCH_CONSOLE | KEYCATCH_MESSAGE ) ) != 0;
++
++	if( want == textInput )
++		return;
++
++	if( want )
++		SDL_StartTextInput( );
++	else
++		SDL_StopTextInput( );
++	textInput = want;
++}
++
+ /*
+ ===============
+ IN_Frame
+@@ -1240,6 +1266,7 @@ void IN_Frame( void )
+ {
+ 	qboolean loading;
+ 
++	IN_SyncTextInput( );
+ 	IN_JoyMove( );
+ 
+ 	// If not DISCONNECTED (main menu) or ACTIVE (in game), we're loading
+@@ -1311,7 +1338,9 @@ void IN_Init( void *windowData )
+ 	SDL_EventState( SDL_DROPFILE, SDL_ENABLE );
+ #endif
+ 
+-	SDL_StartTextInput( );
++	// IN_SyncTextInput starts it when typing is wanted
++	textInput = qfalse;
++	SDL_StopTextInput( );
+ 
+ 	mouseAvailable = ( in_mouse->value != 0 );
+ 	IN_DeactivateMouse( Cvar_VariableIntegerValue( "r_fullscreen" ) != 0 );
+diff --git a/code/sys/sys_main.c b/code/sys/sys_main.c
+index e3b63cb5..984fc800 100644
+--- a/code/sys/sys_main.c
++++ b/code/sys/sys_main.c
+@@ -51,6 +51,123 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+ #include "../qcommon/q_shared.h"
+ #include "../qcommon/qcommon.h"
+ 
++#ifdef WEBOS
++#include <glob.h>
++#include <unistd.h>
++
++/*
++=================
++Sys_WebOSStart
++
++webOS starts the binary that appinfo.json names as "main" directly, and the luna
++bus only knows the app by that executable: a wrapper script would leave the game
++unable to register, stuck behind the launch spinner. So the setup a wrapper would
++do happens here, before Com_Init:
++- the log goes to /tmp/quake3.log;
++- the remote's Back button reaches the game, as Escape, instead of closing the app;
++- the game data is quake3/baseq3/pak0.pk3 (plus pak1-8) on a USB drive, added as
++  fs_gogpath under the app folder's own baseq3 (the native game modules), with
++  the config, saves and screenshots in quake3/home next to it, so they survive
++  reinstalling the app. Without the drive, the app folder's data/ and home/;
++- with no game data at all, or when launched with {"demo":true}, the Quake III
++  Arena demo that ships in the app folder's demoq3/ (com_basegame demoq3, with
++  its own copy of the native modules, as the demo's QVMs are too old);
++- the first start gets the TV's resolution, vsync, the FPS counter, and the
++  gamepad layout from gamepad.cfg, appended once (marked by .gamepad-N) so later
++  rebinding sticks.
++=================
++*/
++static void Sys_WebOSStart( char *commandLine, int size, qboolean demo )
++{
++	const char *appDir = Sys_BinaryPath( ), *game;
++	char data[ MAX_OSPATH ], home[ MAX_OSPATH ], path[ MAX_OSPATH ], mark[ MAX_OSPATH ];
++	glob_t g;
++	FILE *f, *in;
++
++	if ( freopen( "/tmp/quake3.log", "w", stdout ) )
++		dup2( fileno( stdout ), fileno( stderr ) );
++	setvbuf( stdout, NULL, _IOLBF, 0 );
++
++	setenv( "SDL_WEBOS_ACCESS_POLICY_KEYS_BACK", "true", 1 );
++
++	if ( !demo && glob( "/tmp/usb/*/*/quake3/baseq3/pak0.pk3", 0, NULL, &g ) == 0 && g.gl_pathc > 0 ) {
++		Q_strncpyz( data, g.gl_pathv[ 0 ], sizeof( data ) );
++		*strstr( data, "/baseq3/pak0.pk3" ) = '\0';
++		Com_sprintf( home, sizeof( home ), "%s/home", data );
++		globfree( &g );
++	} else {
++		if ( !demo )
++			globfree( &g );
++		Com_sprintf( data, sizeof( data ), "%s/data", appDir );
++		Com_sprintf( home, sizeof( home ), "%s/home", appDir );
++		Com_sprintf( path, sizeof( path ), "%s/baseq3/pak0.pk3", data );
++		if ( access( path, F_OK ) != 0 )
++			demo = qtrue;
++	}
++	game = demo ? "demoq3" : "baseq3";
++	mkdir( home, 0775 );
++	Com_sprintf( path, sizeof( path ), "%s/%s", home, game );
++	mkdir( path, 0775 );
++
++	Com_sprintf( path, sizeof( path ), "%s/%s/q3config.cfg", home, game );
++	if ( access( path, F_OK ) != 0 && ( f = fopen( path, "w" ) ) ) {
++		fputs( "seta r_mode \"-2\"\nseta r_fullscreen \"1\"\nseta r_swapInterval \"1\"\n"
++			"seta com_maxfps \"60\"\nseta cg_drawFPS \"1\"\n", f );
++		fclose( f );
++	}
++	Com_sprintf( mark, sizeof( mark ), "%s/%s/.gamepad-4", home, game );
++	if ( access( mark, F_OK ) != 0 && ( in = fopen( va( "%s/gamepad.cfg", appDir ), "r" ) ) ) {
++		if ( ( f = fopen( path, "a" ) ) ) {
++			char buf[ 4096 ];
++			size_t n;
++			fputs( "\n", f );
++			while ( ( n = fread( buf, 1, sizeof( buf ), in ) ) > 0 )
++				fwrite( buf, 1, n, f );
++			fclose( f );
++			if ( ( f = fopen( mark, "w" ) ) )
++				fclose( f );
++		}
++		fclose( in );
++	}
++
++	// added once each (marker files), so the menus can change them afterwards:
++	// - mute and slow down while another app is in front, as Home leaves the
++	//   game running;
++	// - the remote's OK (Enter) shoots; its arrows already walk and turn;
++	// - the OpenGL2 renderer's costly extras off, for the Mali-G51 at 1080p;
++	// - every single-player tier open from the start ("iamacheater")
++	Com_sprintf( mark, sizeof( mark ), "%s/%s/.webos-1", home, game );
++	if ( access( mark, F_OK ) != 0 && ( f = fopen( path, "a" ) ) ) {
++		fputs( "\nseta s_muteWhenUnfocused \"1\"\nseta s_muteWhenMinimized \"1\"\n"
++			"seta com_maxfpsUnfocused \"10\"\nseta com_maxfpsMinimized \"5\"\n"
++			"bind ENTER \"+attack\"\n"
++			"seta r_hdr \"0\"\nseta r_postProcess \"0\"\nseta r_toneMap \"0\"\n"
++			"seta r_autoExposure \"0\"\nseta r_sunShadows \"0\"\nseta r_sunlightMode \"0\"\n"
++			"seta r_depthPrepass \"0\"\nseta r_normalMapping \"0\"\n"
++			"seta r_specularMapping \"0\"\nseta r_deluxeMapping \"0\"\n", f );
++		fclose( f );
++		if ( ( f = fopen( mark, "w" ) ) )
++			fclose( f );
++	}
++	Com_sprintf( mark, sizeof( mark ), "%s/%s/.unlocked-1", home, game );
++	if ( !demo && access( mark, F_OK ) != 0 && ( f = fopen( mark, "w" ) ) ) {
++		fclose( f );
++		Q_strcat( commandLine, size, "+iamacheater " );
++	}
++
++	if ( demo ) {
++		printf( "webOS: app %s, the demo, home %s\n", appDir, home );
++		Q_strcat( commandLine, size, "+set com_basegame demoq3 " );
++	} else {
++		printf( "webOS: app %s, data %s, home %s\n", appDir, data, home );
++		Q_strcat( commandLine, size, va( "+set fs_gogpath \"%s\" ", data ) );
++	}
++	Q_strcat( commandLine, size, va( "+set fs_homepath \"%s\" "
++		"+set r_preferOpenGLES 1 +set cl_motd 0 +set sv_pure 0 "
++		"+set vm_ui 0 +set vm_cgame 0 +set vm_game 0 ", home ) );
++}
++#endif
++
+ static char binaryPath[ MAX_OSPATH ] = { 0 };
+ static char installPath[ MAX_OSPATH ] = { 0 };
+ 
+@@ -838,11 +955,22 @@ int main( int argc, char **argv )
+ 	Sys_SetBinaryPath( Sys_Dirname( argv[ 0 ] ) );
+ 	Sys_SetDefaultInstallPath( DEFAULT_BASEDIR );
+ 
++#ifdef WEBOS
++	Sys_WebOSStart( commandLine, sizeof( commandLine ),
++		argc > 1 && argv[ 1 ][ 0 ] == '{' && strstr( argv[ 1 ], "\"demo\":true" ) );
++#endif
++
+ 	// Concatenate the command line for passing to Com_Init
+ 	for( i = 1; i < argc; i++ )
+ 	{
+ 		qboolean containsSpaces;
+ 
++#ifdef WEBOS
++		// the app manager's launch parameters, as JSON
++		if ( argv[i][0] == '{' )
++			continue;
++#endif
++
+ 		// For security reasons we always detect --uri, even when PROTOCOL_HANDLER is undefined
+ 		// Any arguments after "--uri quake3://..." is ignored
+ 		if ( !strcmp( argv[i], "--uri" ) )

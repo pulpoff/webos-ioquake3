@@ -1,0 +1,14 @@
+{
+  "id": "com.pulp.quake3",
+  "version": "1.2.0",
+  "vendor": "Pulp",
+  "type": "native",
+  "main": "ioquake3",
+  "title": "ioquake3",
+  "icon": "icon.png",
+  "largeIcon": "largeIcon.png",
+  "iconColor": "#181614",
+  "useAllMouseButtons": true,
+  "useAllKeyboardKeys": true,
+  "cloudgame_active": true
+}
