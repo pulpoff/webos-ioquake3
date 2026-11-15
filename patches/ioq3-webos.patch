@@ -242,7 +242,7 @@ index e3b63cb5..9d45f32f 100644
 +			"seta com_maxfps \"60\"\nseta cg_drawFPS \"1\"\n", f );
 +		fclose( f );
 +	}
-+	Com_sprintf( mark, sizeof( mark ), "%s/%s/.gamepad-4", home, game );
++	Com_sprintf( mark, sizeof( mark ), "%s/%s/.gamepad-5", home, game );
 +	if ( access( mark, F_OK ) != 0 && ( in = fopen( va( "%s/gamepad.cfg", appDir ), "r" ) ) ) {
 +		if ( ( f = fopen( path, "a" ) ) ) {
 +			char buf[ 4096 ];

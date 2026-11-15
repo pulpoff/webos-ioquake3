@@ -23,8 +23,8 @@
 - **Game controller** (see `app/gamepad.cfg`):
   - the left stick walks and the right stick looks;
   - R2/RT fires and L2/LT zooms;
-  - the shoulder buttons change weapons;
-  - Cross/A jumps and Circle/B crouches;
+  - L1/LB jumps (so does Cross/A) and Circle/B crouches;
+  - R1/RB and Triangle/Y change weapons, to the next and the previous;
   - Options/Start opens the menu;
   - the D-pad and Cross/A drive the menus.
 - **USB keyboard and mouse:** these work as on a PC.
@@ -65,7 +65,7 @@ To install a build by hand as root on the TV:
 
 ```sh
 luna-send -i -f luna://com.webos.appInstallService/dev/install \
-  '{"id":"com.pulp.quake3","ipkUrl":"/tmp/com.pulp.quake3_1.2.0_all.ipk","subscribe":true}'
+  '{"id":"com.pulp.quake3","ipkUrl":"/tmp/com.pulp.quake3_1.2.1_all.ipk","subscribe":true}'
 ```
 
 ## License
