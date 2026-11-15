@@ -2,6 +2,17 @@
 
 [ioquake3](https://ioquake3.org), the Quake III Arena engine, built as a native webOS app (`com.pulp.quake3`). It comes with the Quake III Arena demo, so it plays after installing. Add your own game data for the full game. It was developed and tested on an LG C1 running webOS 6.5.3 (Mali-G51 GPU).
 
+## Screenshots
+
+Taken on the LG C1 at 1080p.
+
+| | |
+|---|---|
+| ![A match](docs/screenshots/in-game.jpg) | ![The menu, opened with the remote's Back button](docs/screenshots/menu.jpg) |
+| A match | The menu, opened with the remote's Back button |
+| ![The public server list](docs/screenshots/servers.jpg) | ![Choosing a level in the demo](docs/screenshots/demo-choose-level.jpg) |
+| The public server list | Choosing a level in the demo |
+
 ## Requirements
 
 - **An ARMv8 CPU**, as in TVs with a 64-bit kernel such as the LG C1. The code is built for the Cortex-A55 in 32-bit mode, so it doesn't run on older ARMv7-only TVs.
