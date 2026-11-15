@@ -1,6 +1,6 @@
 {
   "id": "com.pulp.quake3",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "vendor": "Pulp",
   "type": "native",
   "main": "ioquake3",

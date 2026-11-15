@@ -1,8 +1,8 @@
 diff --git a/code/client/cl_keys.c b/code/client/cl_keys.c
-index 7aca5b62..eff107d9 100644
+index 7aca5b62..eccfcdff 100644
 --- a/code/client/cl_keys.c
 +++ b/code/client/cl_keys.c
-@@ -1364,6 +1364,33 @@ void CL_KeyUpEvent( int key, unsigned time )
+@@ -1364,6 +1364,35 @@ void CL_KeyUpEvent( int key, unsigned time )
  	}
  }
  
@@ -10,8 +10,9 @@ index 7aca5b62..eff107d9 100644
 +===================
 +CL_PadMenuKey
 +
-+A gamepad works the menus the way a console game's do: the D-pad moves, A chooses, B and Back go back. Start is
-+Escape everywhere, so it opens the menu in game and leaves it again. The menus know only the keyboard's keys.
++A gamepad works the menus the way a console game's do: the D-pad moves, A chooses, B and Back go back, and X is
++Space, which stops the server browser's search. Start is Escape everywhere, so it opens the menu in game and leaves
++it again. The menus know only the keyboard's keys.
 +===================
 +*/
 +static int CL_PadMenuKey( int key ) {
@@ -29,6 +30,7 @@ index 7aca5b62..eff107d9 100644
 +		case K_PAD0_A:		return K_ENTER;
 +		case K_PAD0_B:
 +		case K_PAD0_BACK:	return K_ESCAPE;
++		case K_PAD0_X:		return K_SPACE;
 +		default:		return key;
 +	}
 +}
@@ -36,7 +38,7 @@ index 7aca5b62..eff107d9 100644
  /*
  ===================
  CL_KeyEvent
-@@ -1372,6 +1399,19 @@ Called by the system for both key up and key down events
+@@ -1372,6 +1401,19 @@ Called by the system for both key up and key down events
  ===================
  */
  void CL_KeyEvent (int key, qboolean down, unsigned time) {
@@ -76,6 +78,28 @@ index 6afacbac..30881867 100644
  	
  	memset( &s_main, 0 ,sizeof(mainmenu_t) );
  	memset( &s_errorMessage, 0 ,sizeof(errorMessage_t) );
+diff --git a/code/q3_ui/ui_servers2.c b/code/q3_ui/ui_servers2.c
+index 49c3a04b..9dcd932b 100644
+--- a/code/q3_ui/ui_servers2.c
++++ b/code/q3_ui/ui_servers2.c
+@@ -422,7 +422,7 @@ static void ArenaServers_UpdateMenu( void ) {
+ 		if( g_arenaservers.refreshservers && ( g_arenaservers.currentping <= g_arenaservers.numqueriedservers ) ) {
+ 			// show progress
+ 			Com_sprintf( g_arenaservers.status.string, MAX_STATUSLENGTH, "%d of %d Arena Servers.", g_arenaservers.currentping, g_arenaservers.numqueriedservers);
+-			g_arenaservers.statusbar.string  = "Press SPACE to stop";
++			g_arenaservers.statusbar.string  = "Press SPACE or Square [X] to stop";
+ 			qsort( g_arenaservers.serverlist, *g_arenaservers.numservers, sizeof( servernode_t ), ArenaServers_Compare);
+ 		}
+ 		else {
+@@ -450,7 +450,7 @@ static void ArenaServers_UpdateMenu( void ) {
+ 		// no servers found
+ 		if( g_arenaservers.refreshservers ) {
+ 			strcpy( g_arenaservers.status.string,"Scanning For Servers." );
+-			g_arenaservers.statusbar.string = "Press SPACE to stop";
++			g_arenaservers.statusbar.string = "Press SPACE or Square [X] to stop";
+ 
+ 			// disable controls during refresh
+ 			g_arenaservers.gametype.generic.flags	|= QMF_GRAYED;
 diff --git a/code/sdl/sdl_glimp.c b/code/sdl/sdl_glimp.c
 index d5c38f61..c74df86e 100644
 --- a/code/sdl/sdl_glimp.c
@@ -171,7 +195,7 @@ index dcc6bc52..ec22c72c 100644
  	mouseAvailable = ( in_mouse->value != 0 );
  	IN_DeactivateMouse( Cvar_VariableIntegerValue( "r_fullscreen" ) != 0 );
 diff --git a/code/sys/sys_main.c b/code/sys/sys_main.c
-index e3b63cb5..9d45f32f 100644
+index e3b63cb5..f8b20424 100644
 --- a/code/sys/sys_main.c
 +++ b/code/sys/sys_main.c
 @@ -51,6 +51,134 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA

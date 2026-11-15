@@ -37,7 +37,7 @@ Taken on the LG C1 at 1080p.
   - L1/LB jumps (so does Cross/A) and Circle/B crouches;
   - R1/RB and Triangle/Y change weapons, to the next and the previous;
   - Options/Start opens the menu;
-  - the D-pad and Cross/A drive the menus.
+  - the D-pad and Cross/A drive the menus, and Square/X stops the Internet server list's search (Space on a keyboard).
 - **USB keyboard and mouse:** these work as on a PC.
 
 The first start uses the TV's resolution, vsync and a 60 fps cap, and turns off the OpenGL2 renderer's costly extras (HDR, shadows, normal and specular maps) to keep 1080p smooth. When you press Home, the game mutes and slows down to 10 fps until you come back. The CD-key prompt is skipped: it is only a local check, and the full game still needs your own data. All single-player tiers are open from the start.
@@ -76,7 +76,7 @@ To install a build by hand as root on the TV:
 
 ```sh
 luna-send -i -f luna://com.webos.appInstallService/dev/install \
-  '{"id":"com.pulp.quake3","ipkUrl":"/tmp/com.pulp.quake3_1.2.1_all.ipk","subscribe":true}'
+  '{"id":"com.pulp.quake3","ipkUrl":"/tmp/com.pulp.quake3_1.2.2_all.ipk","subscribe":true}'
 ```
 
 ## License
